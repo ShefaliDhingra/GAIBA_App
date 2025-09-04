@@ -92,9 +92,13 @@ def prepare_features(df):
     Combine text features + numeric structured features + job role encoding
     """
     # Combine text fields
-    df['combined_text'] = df['Resume'].fillna('') + " " + \
-                          df['Job Description'].fillna('') + " " + \
-                          df['notable_projects'].fillna('').apply(lambda x: " ".join(eval(x)) if x != '' else '')
+    combined_text = df['Resume'].fillna('') + " " + df['Job Description'].fillna('')
+    
+    # Only include notable_projects if column exists
+    if 'notable_projects' in df.columns:
+        combined_text += " " + df['notable_projects'].fillna('').apply(lambda x: " ".join(eval(x)) if x != '' else '')
+    
+    df['combined_text'] = combined_text
     
     # TF-IDF vectorizer
     vectorizer = TfidfVectorizer(max_features=1000)
