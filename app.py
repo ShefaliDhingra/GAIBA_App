@@ -47,13 +47,32 @@ if st.button("Match"):
         # ------------------------
         st.subheader("📌 Current Resume Strength")
         keyword_count = len(output['match_keywords'])
+
         if keyword_count == 0:
-            resume_strength = "Low"
+            resume_strength = "🔴 No Match!"
+            color = "red"
+            progress_val = 0
         elif 1 <= keyword_count <= 3:
-            resume_strength = "Medium"
+            resume_strength = "🟡 Low"
+            color = "gold"
+            progress_val = 25
+        elif 4 <= keyword_count <= 6:
+            resume_strength = "🟠 Medium"
+            color = "orange"
+            progress_val = 60
         else:
-            resume_strength = "High"
-        st.write(f"**{resume_strength}** (based on {keyword_count} matched keywords)")
+            resume_strength = "🟢 High"
+            color = "green"
+            progress_val = 100
+
+        # Display colored heading
+        st.markdown(
+            f"<h4 style='color:{color}'>{resume_strength}</h4>",
+            unsafe_allow_html=True
+        )
+
+        # Visual progress bar
+        st.progress(progress_val)
 
         # ------------------------
         # Display keywords nicely
