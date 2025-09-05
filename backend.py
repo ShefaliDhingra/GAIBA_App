@@ -5,14 +5,14 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
-import lightgbm as lgb
+from sklearn.ensemble import RandomForestRegressor
+import re
 
 # ----------------------------
 # Utility functions
 # ----------------------------
 def map_experience_to_numeric(experience_str):
-    mapping = {"entry-level":1,"mid-level":4,"senior-level":6,"expert":8}
+    mapping = {"entry-level":1,"mid-level":5,"senior-level":8,"expert":10}
     return mapping.get(str(experience_str).lower(),0)
 
 def map_education_to_numeric(education_str):
@@ -51,8 +51,8 @@ def train_numeric_model(df):
     X = df[features]
     y = df[target_cols]
     
-    # Train LightGBM Regressor
-    model = lgb.LGBMRegressor(objective='regression', n_estimators=500, learning_rate=0.05)
+    # Train RandomForest Regressor
+    model = RandomForestRegressor(n_estimators=200, random_state=42)
     model.fit(X, y)
     
     return model, features
@@ -60,8 +60,6 @@ def train_numeric_model(df):
 # ----------------------------
 # Optional: Keyword Matching (minimal)
 # ----------------------------
-import re
-
 STOPWORDS = set([
     "a","an","the","and","or","in","on","of","with","to","for","is",
     "are","as","by","from","at","be","this","that","will","you","your"
