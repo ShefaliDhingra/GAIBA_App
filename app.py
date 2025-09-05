@@ -7,7 +7,7 @@ from backend import load_enriched_df, train_numeric_model, predict_candidate_sco
 # ----------------------------
 # Page Config
 # ----------------------------
-st.set_page_config(page_title="AI Resume vs Job Description Matcher", layout="wide")
+st.set_page_config(page_title="AIRRA", layout="wide")
 st.title("AI Resume vs Job Description Matcher")
 
 # ----------------------------
@@ -33,7 +33,7 @@ projects_text = st.text_area("Optional: Projects / Notable Work:")
 # ----------------------------
 # Prediction
 # ----------------------------
-if st.button("Match"):
+if st.button("Evaluate"):
     if not resume_text or not jd_text or not job_role:
         st.warning("Please enter Resume, Job Description, and Job Role.")
     else:
