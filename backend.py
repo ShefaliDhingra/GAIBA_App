@@ -38,11 +38,28 @@ def clean_text(text):
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
+# ----------------------------
+# Stopwords
+# ----------------------------
+STOPWORDS = set([
+    "a", "an", "the", "and", "or", "in", "on", "of", "with", "to", "for", "is",
+    "are", "as", "by", "from", "at", "be", "this", "that", "will", "you", "your"
+])
+
+# ----------------------------
+# Keyword extraction
+# ----------------------------
 def extract_keywords(text, top_n=20):
-    """Extract top N frequent words from a single text"""
+    """
+    Extract top N frequent words from a single text
+    Ignores stopwords, numbers, and very short words
+    """
     words = clean_text(text).split()
+    # Filter out stopwords, numbers, and words shorter than 3 letters
+    words = [w for w in words if w not in STOPWORDS and not w.isnumeric() and len(w) > 2]
     freq = pd.Series(words).value_counts()
     return list(freq.index[:top_n])
+
 
 def map_experience_to_numeric(experience_str):
     mapping = {
