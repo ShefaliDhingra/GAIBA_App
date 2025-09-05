@@ -8,7 +8,7 @@ from backend import load_enriched_df, train_numeric_model, predict_candidate_sco
 # Page Config
 # ----------------------------
 st.set_page_config(page_title="AIRRA", layout="wide")
-st.title("AI Resume vs Job Description Matcher")
+st.title("AIRRA")
 
 # ----------------------------
 # Load Data and Train Model
