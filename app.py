@@ -3,7 +3,7 @@
 # ============================
 
 import streamlit as st
-from backend import load_enriched_df, train_numeric_model, predict_candidate_score, map_experience_to_numeric, map_education_to_numeric
+from backend import load_enriched_df, train_numeric_model, predict_candidate_score
 
 # ----------------------------
 # Page Config
@@ -17,44 +17,43 @@ st.title("AI Resume vs Job Description Matcher")
 @st.cache_data(show_spinner=True)
 def load_and_train():
     df, role_encoder = load_enriched_df("enriched_df.csv")
-    model, features = train_numeric_model(df)
-    return model, features, role_encoder
+    model, vectorizer = train_numeric_model(df)
+    return model, vectorizer, role_encoder
 
-model, features, role_encoder = load_and_train()
+model, vectorizer, role_encoder = load_and_train()
 
 # ----------------------------
 # Candidate Input
 # ----------------------------
 st.header("Candidate Input")
+resume_text = st.text_area("Paste Resume Text here:")
+jd_text = st.text_area("Paste Job Description here:")
+job_role = st.text_input("Job Role:")
 
-years_experience = st.number_input("Years of Experience", min_value=0, max_value=30, value=5)
-education_level = st.selectbox("Education Level", ["Bachelors Degree","Masters Degree","PhD"])
-num_skills = st.number_input("Number of Skills", min_value=0, max_value=50, value=5)
-num_technologies = st.number_input("Number of Technologies", min_value=0, max_value=50, value=2)
-num_certifications = st.number_input("Number of Certifications", min_value=0, max_value=20, value=1)
-job_role = st.text_input("Job Role")
+# Optional refinement
+st.subheader("Optional Refinement")
+years_experience = st.selectbox(
+    "Years of Experience Level (Optional):",
+    ["", "Entry-Level", "Mid-Level", "Senior-Level", "Expert"]
+)
+education_level = st.selectbox(
+    "Education Level (Optional):",
+    ["", "Bachelors Degree", "Masters Degree", "PhD"]
+)
 
-# Map education level to numeric
-education_numeric = map_education_to_numeric(education_level)
-years_experience_numeric = years_experience  # already numeric
+projects_text = st.text_area("Optional: Projects / Notable Work:")
 
 # ----------------------------
 # Prediction
 # ----------------------------
-if st.button("Predict Match"):
-    if not job_role:
-        st.warning("Please enter a Job Role.")
+if st.button("Match"):
+    if not resume_text or not jd_text or not job_role:
+        st.warning("Please enter Resume, Job Description, and Job Role.")
     else:
         output = predict_candidate_score(
-            model=model,
-            features=features,
-            role_encoder=role_encoder,
-            years_experience=years_experience_numeric,
-            education_level=education_numeric,
-            num_skills=num_skills,
-            num_technologies=num_technologies,
-            num_certifications=num_certifications,
-            job_role=job_role
+            model, vectorizer, role_encoder,
+            resume_text, jd_text, job_role,
+            projects_text, years_experience, education_level
         )
 
         st.success("✅ Match Scores")
@@ -94,3 +93,19 @@ if st.button("Predict Match"):
         for idx, score_name in enumerate(scores):
             col = cols[idx % 4]
             col.metric(label=score_name.replace("_"," ").title(), value=f"{output[score_name]:.1f}/10")
+
+        # ------------------------
+        # Display keywords nicely
+        # ------------------------
+        st.subheader("Match Keywords")
+        if output['match_keywords']:
+            st.markdown(" ".join([f"✅ `{kw}`" for kw in output['match_keywords']]))
+        else:
+            st.write("No significant match keywords found.")
+
+        st.subheader("Skill / Keyword Gaps")
+        if output['skill_gaps']:
+            st.markdown(" ".join([f"⚠️ `{kw}`" for kw in output['skill_gaps']]))
+        else:
+            st.write("No significant skill gaps found.")
+
