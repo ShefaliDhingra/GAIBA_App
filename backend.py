@@ -7,6 +7,7 @@ import numpy as np
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from scipy.sparse import hstack
 
@@ -102,60 +103,42 @@ def compute_match_scope(resume_text, jd_text):
     return match, scope
 
 # ----------------------------
-# Weighted Inference
+# Inference with weighted scoring
 # ----------------------------
-def predict_candidate_score(model, vectorizer, role_encoder, resume_text, jd_text, job_role, years_experience=None, education_level=None, projects_text=""):
-    # Encode job role
+def predict_candidate_score(model, vectorizer, role_encoder, resume_text, jd_text, job_role, projects_text=""):
     try:
         job_role_encoded = role_encoder.transform([job_role])[0]
     except:
         job_role_encoded = 0
-    
-    # Numeric fields
-    exp_numeric = map_experience_to_numeric(years_experience) if years_experience else 0
-    edu_numeric = map_education_to_numeric(education_level) if education_level else 0
-    num_skills = 0
-    num_technologies = 0
-    num_certifications = 0
-    
-    # TF-IDF text
+
     combined_text = clean_text(resume_text) + " " + clean_text(jd_text) + " " + clean_text(projects_text)
     X_text = vectorizer.transform([combined_text])
     
-    # Numeric features
-    num_features = np.array([[exp_numeric, edu_numeric, num_skills, num_technologies, num_certifications, job_role_encoded]])
-    from scipy.sparse import csr_matrix
-    num_features = csr_matrix(num_features)
-    
-    # Combine features
+    # numeric features for model prediction (can remain zeros if not using trained model)
+    num_features = np.array([[0,0,0,0,0,job_role_encoded]])
     X_input = hstack([X_text, num_features])
     
     numeric_cols = ['experience_match','skills_match','project_relevance','tech_match','industry_relevance','ats_score','relevancy']
+    numeric_preds = model.predict(X_input)[0]
     
-    # Predict
-    try:
-        numeric_preds = model.predict(X_input)[0]
-    except:
-        numeric_preds = np.zeros(len(numeric_cols))
-    
-    # Keyword matching
-    match_keywords, skill_gaps = compute_match_scope(resume_text, jd_text) if resume_text and jd_text else ([], [])
+    match_keywords, skill_gaps = compute_match_scope(resume_text, jd_text)
     
     # ----------------------------
-    # Weighted Overall Percentage
+    # Weighted scoring
     # ----------------------------
-    # Define your weights here (sum can be <=1)
+    # You can change these weights as per your preference
     weights = {
-        'experience_match': 0.2,
+        'experience_match': 0.15,
         'skills_match': 0.25,
-        'project_relevance': 0.15,
-        'tech_match': 0.1,
+        'project_relevance': 0.10,
+        'tech_match': 0.10,
         'industry_relevance': 0.15,
-        'ats_score': 0.1,
-        'relevancy': 0.05
+        'ats_score': 0.15,
+        'relevancy': 0.10
     }
     
-    overall_percentage = sum(numeric_preds[i] * weights[col] for i, col in enumerate(numeric_cols)) / 10 * 100
+    weighted_sum = sum(float(numeric_preds[i]) * weights[col] for i,col in enumerate(numeric_cols))
+    overall_percentage = weighted_sum * 10  # scale 0-10 per criteria
     
     output = {col: float(val) for col,val in zip(numeric_cols, numeric_preds)}
     output.update({
