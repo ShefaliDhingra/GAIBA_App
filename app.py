@@ -39,7 +39,7 @@ model, vectorizer, role_encoder = load_and_train()
 # ----------------------------
 # Candidate Input
 # ----------------------------
-st.subheader("Candidate Input")
+st.subheader("Please Enter your Details Below)
 resume_text = st.text_area("Paste Resume Text here:")
 jd_text = st.text_area("Paste Job Description here:")
 job_role = st.text_input("Job Role:")
@@ -50,7 +50,7 @@ st.markdown("<hr style='border:1px solid #f0f0f0'>", unsafe_allow_html=True)
 # ----------------------------
 # Prediction
 # ----------------------------
-if st.button("🔍 Match"):
+if st.button("Evaluate"):
     if not resume_text or not jd_text or not job_role:
         st.warning("⚠️ Please enter Resume, Job Description, and Job Role.")
     else:
@@ -84,7 +84,7 @@ if st.button("🔍 Match"):
 
         # Display colored heading
         st.markdown(
-            f"<h4 style='color:{color}; text-align:center'>{resume_strength}</h4>",
+            f"<h3 style='color:{color}; text-align:center'>{resume_strength}</h3>",
             unsafe_allow_html=True
         )
         st.progress(progress_val)
@@ -94,7 +94,7 @@ if st.button("🔍 Match"):
         # ------------------------
         # Display keywords nicely
         # ------------------------
-        st.subheader("✅ Match Keywords")
+        st.subheader("Match Keywords")
         if output['match_keywords']:
             st.markdown(
                 "<div style='line-height:2'>"
@@ -108,7 +108,7 @@ if st.button("🔍 Match"):
         # ------------------------
         # Skill Gaps
         # ------------------------
-        st.subheader("⚠️ Skill / Keyword Gaps")
+        st.subheader("Skill / Keyword Gaps")
         if output['skill_gaps']:
             st.markdown(
                 "<div style='line-height:2'>"
@@ -124,7 +124,7 @@ if st.button("🔍 Match"):
         # ------------------------
         # Click-to-expand detailed scores
         # ------------------------
-        with st.expander("📊 Detailed Scores"):
+        with st.expander("Bifurcated Scores"):
             scores = [
                 'experience_match', 'skills_match', 'project_relevance',
                 'tech_match', 'industry_relevance', 'ats_score', 'relevancy'
