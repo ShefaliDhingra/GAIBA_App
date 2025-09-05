@@ -1,70 +1,36 @@
+import streamlit as st
+from backend import load_enriched_df, train_numeric_model, predict_candidate_score
+
+# ----------------------------
+# Page Config
+# ----------------------------
+st.set_page_config(page_title="AI Resume vs Job Description Matcher", layout="wide")
+st.title("AI Resume vs Job Description Matcher")
+st.write("Model ready!")
+
+# ----------------------------
+# Load Data and Train Model
+# ----------------------------
+@st.cache_data(show_spinner=True)
+def load_and_train():
+    df, role_encoder = load_enriched_df("enriched_df.csv")
+    model, vectorizer = train_numeric_model(df)
+    return model, vectorizer, role_encoder
+
+model, vectorizer, role_encoder = load_and_train()
+
+# ----------------------------
+# Candidate Input
+# ----------------------------
+st.header("Candidate Input")
+resume_text = st.text_area("Paste Resume Text here:")
+jd_text = st.text_area("Paste Job Description here:")
+job_role = st.text_input("Job Role:")
+projects_text = st.text_area("Optional: Projects / Notable Work:")
+
 # ----------------------------
 # Prediction
 # ----------------------------
 if st.button("Match"):
-    if not resume_text or not jd_text or not job_role:
-        st.warning("Please enter Resume, Job Description, and Job Role.")
-    else:
-        output = predict_candidate_score(model, vectorizer, role_encoder,
-                                         resume_text, jd_text, job_role, projects_text)
-        st.success("✅ Match Scores")
+    # Your updated Low/Medium/High + meter code here
 
-        # Function to map numeric score to Low/Medium/High
-        def score_label(score):
-            if score < 8:
-                return "Low"
-            elif 8 <= score <= 9:
-                return "Medium"
-            else:
-                return "High"
-
-        # Display numeric scores as labels
-        st.subheader("Experience Match")
-        st.write(score_label(output['experience_match']))
-
-        st.subheader("Skills Match")
-        st.write(score_label(output['skills_match']))
-
-        st.subheader("Project Relevance")
-        st.write(score_label(output['project_relevance']))
-
-        st.subheader("Tech Match")
-        st.write(score_label(output['tech_match']))
-
-        st.subheader("Industry Relevance")
-        st.write(score_label(output['industry_relevance']))
-
-        st.subheader("ATS Score")
-        st.write(score_label(output['ats_score']))
-
-        st.subheader("Relevancy")
-        st.write(score_label(output['relevancy']))
-
-        # Overall match meter (without numeric)
-        st.subheader("Overall Match")
-        overall = output['overall_percentage']
-        if overall < 60:
-            label = "Very Low Chances"
-            color = "red"
-        elif overall < 76:
-            label = "Low Chances"
-            color = "orange"
-        elif overall < 86:
-            label = "Medium Chances"
-            color = "yellow"
-        elif overall < 96:
-            label = "High Chances"
-            color = "lightgreen"
-        else:
-            label = "Very High Chances"
-            color = "green"
-        
-        st.progress(int(overall))
-        st.markdown(f"**{label}**")
-
-        # Display keywords
-        st.subheader("Match Keywords")
-        st.write(", ".join(output['match_keywords']))
-
-        st.subheader("Skill / Keyword Gaps")
-        st.write(", ".join(output['skill_gaps']))
