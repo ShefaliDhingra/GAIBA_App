@@ -70,7 +70,10 @@ def predict_candidate_score(model, vectorizer, role_encoder,
     relative_score = max(0.0, min(1.0, relative_score))
 
     # Prepare feature vector for ML model
-    job_role_encoded = role_encoder.transform([job_role])[0] if job_role in roles else -1
+    try:
+        job_role_encoded = role_encoder.transform([job_role])[0]
+    except Exception:
+        job_role_encoded = -1
 
     features = [relative_score, job_role_encoded]
 
@@ -99,4 +102,15 @@ def predict_candidate_score(model, vectorizer, role_encoder,
     }
 
     return output
+
+
+# -------------------------
+# Compatibility stub
+# -------------------------
+def train_numeric_model(df):
+    """
+    Placeholder for compatibility with app.py.
+    Not used in current workflow.
+    """
+    return None
 
