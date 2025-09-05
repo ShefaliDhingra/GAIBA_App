@@ -1,68 +1,60 @@
+# ============================
+# app.py
+# ============================
 import streamlit as st
-from backend import predict_resume_fit
+import pandas as pd
+from backend import load_enriched_df, train_numeric_model, predict_candidate_score
 
-# ---------------- App Layout ----------------
+# ----------------------------
+# Page config
+# ----------------------------
 st.set_page_config(page_title="AI Resume Matcher", layout="wide")
+st.title("AI Resume vs Job Description Matcher")
 
-st.title("📄 AI-Powered Resume Matcher")
-st.markdown("Upload your resume, paste a Job Description, and see how well you match!")
+# ----------------------------
+# Load Data and Train Model
+# ----------------------------
+@st.cache_data
+def load_data_and_train():
+    df, role_encoder = load_enriched_df("enriched_df.csv")
+    model, vectorizer = train_numeric_model(df)
+    return df, model, vectorizer, role_encoder
 
-# ---------------- Inputs ----------------
-resume_file = st.file_uploader("Upload Resume (TXT or DOCX)", type=["txt", "docx"])
-job_role = st.text_input("Enter Job Role")
-job_description = st.text_area("Paste Job Description")
+with st.spinner("Loading data and training model..."):
+    df, model, vectorizer, role_encoder = load_data_and_train()
 
-# Extract resume text
-resume_text = ""
-if resume_file:
-    if resume_file.name.endswith(".txt"):
-        resume_text = resume_file.read().decode("utf-8")
-    elif resume_file.name.endswith(".docx"):
-        import docx
-        doc = docx.Document(resume_file)
-        resume_text = "\n".join([p.text for p in doc.paragraphs])
+st.success("Model ready!")
 
-# ---------------- Prediction ----------------
-if st.button("🔍 Evaluate Resume") and resume_text and job_role and job_description:
-    with st.spinner("Analyzing... Please wait"):
-        results = predict_resume_fit(resume_text, job_role, job_description)
+# ----------------------------
+# Input Section
+# ----------------------------
+st.header("Candidate Input")
+resume_text = st.text_area("Paste Resume Text here:")
+jd_text = st.text_area("Paste Job Description here:")
+job_role = st.text_input("Job Role:")
+projects_text = st.text_area("Optional: Projects / Notable Work:")
 
-    # ---------------- Results ----------------
-    st.subheader("📊 Evaluation Results")
+# ----------------------------
+# Predict Button
+# ----------------------------
+if st.button("Predict Match"):
+    if resume_text.strip() == "" or jd_text.strip() == "" or job_role.strip() == "":
+        st.error("Please provide Resume, Job Description, and Job Role.")
+    else:
+        with st.spinner("Predicting candidate score..."):
+            output = predict_candidate_score(resume_text, jd_text, job_role, projects_text)
 
-    # Numeric scores
-    score_labels = [
-        "Experience Match",
-        "Skills Match",
-        "Project Relevance",
-        "Technologies/Tools Match",
-        "Industry/Domain Relevance",
-        "ATS Score",
-        "Relevancy"
-    ]
+        st.subheader("✅ Match Scores")
+        score_cols = ['experience_match', 'skills_match', 'project_relevance',
+                      'tech_match', 'industry_relevance', 'ats_score', 'relevancy']
+        for col in score_cols:
+            st.metric(label=col.replace("_", " ").title(), value=f"{output[col]:.1f}/10")
 
-    numeric_scores = [
-        results["experience_match"],
-        results["skills_match"],
-        results["project_relevance"],
-        results["tech_match"],
-        results["industry_relevance"],
-        results["ats_score"],
-        results["relevancy"]
-    ]
+        st.metric(label="Overall Percentage", value=f"{output['overall_percentage']:.1f}%")
 
-    for label, score in zip(score_labels, numeric_scores):
-        if score is not None:
-            st.write(f"**{label}:** {score}/10")
-            st.progress(min(int(score) / 10, 1.0))
+        st.subheader("Match Keywords")
+        st.write(", ".join(output['match_keywords'][:20]))
 
-    # Keywords matched
-    st.subheader("✅ Matched Keywords")
-    st.write(", ".join(results["match_keywords"]) if results["match_keywords"] else "No strong matches found.")
+        st.subheader("Skill / Keyword Gaps")
+        st.write(", ".join(output['skill_gaps'][:20]))
 
-    # Skill gaps
-    st.subheader("⚠️ Skill Gaps (Missing Keywords)")
-    st.write(", ".join(results["skill_gaps"]) if results["skill_gaps"] else "No major skill gaps identified.")
-
-else:
-    st.info("Please upload a resume, enter job role, and paste a job description.")
