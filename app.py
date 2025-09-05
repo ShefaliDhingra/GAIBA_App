@@ -39,7 +39,7 @@ model, vectorizer, role_encoder = load_and_train()
 # ----------------------------
 # Candidate Input
 # ----------------------------
-st.subheader("Please Enter your Details Below)
+st.subheader("Please Enter your Details Below")
 resume_text = st.text_area("Paste Resume Text here:")
 jd_text = st.text_area("Paste Job Description here:")
 job_role = st.text_input("Job Role:")
