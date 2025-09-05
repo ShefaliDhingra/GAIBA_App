@@ -28,20 +28,26 @@ def predict_candidate_score(model, vectorizer, role_encoder,
     match_keywords, skill_gaps = compute_match_scope(resume_text, jd_text)
     
     # -------------------------
-    # Base overall score
+    # Base overall score (from ML)
     # -------------------------
-    overall_percentage = numeric_preds.sum() / (len(numeric_cols)*10) * 100
+    ml_score = numeric_preds.sum() / (len(numeric_cols)*10) * 100
 
     # -------------------------
-    # NEW: Penalize weak matches
+    # Stronger Keyword Penalty
     # -------------------------
     jd_keywords = set(extract_keywords(jd_text, top_n=30))
     overlap_ratio = len(match_keywords) / (len(jd_keywords) + 1e-6)
 
-    if overlap_ratio < 0.2:   # Less than 20% JD keywords found
-        overall_percentage *= 0.5   # Cut score in half
-    elif overlap_ratio < 0.1: # Almost no overlap
-        overall_percentage *= 0.3   # Stronger penalty
+    # Weight keywords heavily
+    keyword_score = overlap_ratio * 100  
+
+    # Combine ML + keyword overlap
+    # (70% weight keywords, 30% weight ML)
+    overall_percentage = (0.3 * ml_score) + (0.7 * keyword_score)
+
+    # Force lower bound if no overlap at all
+    if overlap_ratio == 0:
+        overall_percentage = min(overall_percentage, 20)
 
     # -------------------------
     # Prepare output
@@ -54,3 +60,4 @@ def predict_candidate_score(model, vectorizer, role_encoder,
     })
     
     return output
+
