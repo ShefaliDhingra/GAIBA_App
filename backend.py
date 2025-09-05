@@ -152,3 +152,4 @@ def predict_candidate_score(
     })
     
     return output
+
