@@ -1,0 +1,13 @@
+# Core dependencies
+pandas
+scikit-learn
+numpy
+
+# Streamlit app
+streamlit
+
+# Resume parsing (for DOCX upload)
+python-docx
+
+# Progress bar during processing
+tqdm
