@@ -8,7 +8,22 @@ from backend import load_enriched_df, train_numeric_model, predict_candidate_sco
 # Page Config
 # ----------------------------
 st.set_page_config(page_title="AIRRA", layout="wide")
-st.title("AIRRA")
+
+# ----------------------------
+# Custom Header
+# ----------------------------
+st.markdown(
+    """
+    <h1 style='text-align: center; color: #2E86C1;'>
+        🤖 AIRRA
+    </h1>
+    <h3 style='text-align: center; color: gray; margin-top: -10px;'>
+        AI Resume vs Job Description Matcher
+    </h3>
+    <hr style="border:1px solid #f0f0f0">
+    """,
+    unsafe_allow_html=True
+)
 
 # ----------------------------
 # Load Data and Train Model
@@ -24,18 +39,20 @@ model, vectorizer, role_encoder = load_and_train()
 # ----------------------------
 # Candidate Input
 # ----------------------------
-st.header("Candidate Input")
+st.subheader("Candidate Input")
 resume_text = st.text_area("Paste Resume Text here:")
 jd_text = st.text_area("Paste Job Description here:")
 job_role = st.text_input("Job Role:")
 projects_text = st.text_area("Optional: Projects / Notable Work:")
 
+st.markdown("<hr style='border:1px solid #f0f0f0'>", unsafe_allow_html=True)
+
 # ----------------------------
 # Prediction
 # ----------------------------
-if st.button("Evaluate"):
+if st.button("🔍 Match"):
     if not resume_text or not jd_text or not job_role:
-        st.warning("Please enter Resume, Job Description, and Job Role.")
+        st.warning("⚠️ Please enter Resume, Job Description, and Job Role.")
     else:
         output = predict_candidate_score(
             model, vectorizer, role_encoder,
@@ -45,49 +62,64 @@ if st.button("Evaluate"):
         # ------------------------
         # Current Resume Strength (Keyword-based score)
         # ------------------------
-        st.subheader("Resume Strength")
+        st.subheader("Current Resume Strength")
         keyword_count = len(output['match_keywords'])
 
         if keyword_count == 0:
-            resume_strength = " No Match!"
+            resume_strength = "No Match!"
             color = "red"
             progress_val = 0
         elif 1 <= keyword_count <= 3:
-            resume_strength = " Low"
+            resume_strength = "Low"
             color = "gold"
             progress_val = 25
         elif 4 <= keyword_count <= 6:
-            resume_strength = " Medium"
+            resume_strength = "Medium"
             color = "orange"
             progress_val = 60
         else:
-            resume_strength = " High"
+            resume_strength = "High"
             color = "green"
             progress_val = 100
 
         # Display colored heading
         st.markdown(
-            f"<h4 style='color:{color}'>{resume_strength}</h4>",
+            f"<h4 style='color:{color}; text-align:center'>{resume_strength}</h4>",
             unsafe_allow_html=True
         )
-
-        # Visual progress bar
         st.progress(progress_val)
+
+        st.markdown("<hr style='border:1px solid #f0f0f0'>", unsafe_allow_html=True)
 
         # ------------------------
         # Display keywords nicely
         # ------------------------
-        st.subheader("Match Keywords")
+        st.subheader("✅ Match Keywords")
         if output['match_keywords']:
-            st.markdown(" ".join([f" `{kw}`" for kw in output['match_keywords']]))
+            st.markdown(
+                "<div style='line-height:2'>"
+                + " ".join([f"<span style='background-color:#E8F8F5; padding:4px 8px; border-radius:8px;'>`{kw}`</span>" for kw in output['match_keywords']])
+                + "</div>",
+                unsafe_allow_html=True
+            )
         else:
             st.write("No significant match keywords found.")
 
-        st.subheader("Skill / Keyword Gaps")
+        # ------------------------
+        # Skill Gaps
+        # ------------------------
+        st.subheader("⚠️ Skill / Keyword Gaps")
         if output['skill_gaps']:
-            st.markdown(" ".join([f"⚠️ `{kw}`" for kw in output['skill_gaps']]))
+            st.markdown(
+                "<div style='line-height:2'>"
+                + " ".join([f"<span style='background-color:#FDEDEC; padding:4px 8px; border-radius:8px;'>`{kw}`</span>" for kw in output['skill_gaps']])
+                + "</div>",
+                unsafe_allow_html=True
+            )
         else:
             st.write("No significant skill gaps found.")
+
+        st.markdown("<hr style='border:1px solid #f0f0f0'>", unsafe_allow_html=True)
 
         # ------------------------
         # Click-to-expand detailed scores
