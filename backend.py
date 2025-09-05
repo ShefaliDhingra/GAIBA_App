@@ -122,8 +122,12 @@ def prepare_features(df):
     
     df['combined_text'] = combined_text
     
-    # TF-IDF vectorizer
-    vectorizer = TfidfVectorizer(max_features=1000)
+    # TF-IDF vectorizer with stopwords
+    vectorizer = TfidfVectorizer(
+        max_features=1000,
+        max_df=0.8,
+        stop_words=STOPWORDS
+    )
     X_text = vectorizer.fit_transform(df['combined_text'])
     
     # Numeric structured features
@@ -204,7 +208,7 @@ def predict_candidate_score(resume_text, jd_text, job_role, projects_text=""):
     combined_text = clean_text(resume_text) + " " + clean_text(jd_text) + " " + clean_text(projects_text)
     X_text = vectorizer.transform([combined_text])
     
-    # Numeric features placeholder (can extend: counts of skills, techs, certifications, experience)
+    # Numeric features placeholder
     num_features = np.array([[0, 0, 0, 0, 0, job_role_encoded]])
     
     # Combine text + numeric
