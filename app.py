@@ -18,7 +18,7 @@ st.markdown(
         🤖 AIRRA
     </h1>
     <h3 style='text-align: center; color: gray; margin-top: -10px;'>
-        AI Resume vs Job Description Matcher
+       Artificially Intelligent Resume Refinement Assistant
     </h3>
     <hr style="border:1px solid #f0f0f0">
     """,
