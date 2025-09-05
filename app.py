@@ -82,23 +82,36 @@ if st.button("Evaluate"):
             color = "green"
             progress_val = 100
 
-        # Display colored heading
+        # Left-aligned heading
         st.markdown(
-            f"<h3 style='color:{color}; text-align:center'>{resume_strength}</h3>",
+            f"<h3 style='color:{color}; text-align:left'>{resume_strength}</h3>",
             unsafe_allow_html=True
         )
-        st.progress(progress_val)
+
+        # Custom colored progress bar
+        st.markdown(
+            f"""
+            <div style="background-color: #e0e0e0; border-radius: 10px; height: 20px; width: 100%;">
+                <div style="background-color: {color}; height: 100%; width: {progress_val}%; 
+                            border-radius: 10px; text-align: right; padding-right: 5px; color: white; 
+                            font-weight: bold; font-size: 12px;">
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
         st.markdown("<hr style='border:1px solid #f0f0f0'>", unsafe_allow_html=True)
 
         # ------------------------
-        # Display keywords nicely
+        # Display keywords nicely (theme-neutral chips)
         # ------------------------
         st.subheader("Match Keywords")
         if output['match_keywords']:
             st.markdown(
                 "<div style='line-height:2'>"
-                + " ".join([f"<span style='background-color:#E8F8F5; padding:4px 8px; border-radius:8px;'>`{kw}`</span>" for kw in output['match_keywords']])
+                + " ".join([f"<span style='border:1px solid #888; padding:4px 8px; border-radius:8px;'>`{kw}`</span>" 
+                            for kw in output['match_keywords']])
                 + "</div>",
                 unsafe_allow_html=True
             )
@@ -106,13 +119,14 @@ if st.button("Evaluate"):
             st.write("No significant match keywords found.")
 
         # ------------------------
-        # Skill Gaps
+        # Skill Gaps (theme-neutral chips)
         # ------------------------
         st.subheader("Skill / Keyword Gaps")
         if output['skill_gaps']:
             st.markdown(
                 "<div style='line-height:2'>"
-                + " ".join([f"<span style='background-color:#FDEDEC; padding:4px 8px; border-radius:8px;'>`{kw}`</span>" for kw in output['skill_gaps']])
+                + " ".join([f"<span style='border:1px solid #888; padding:4px 8px; border-radius:8px;'>`{kw}`</span>" 
+                            for kw in output['skill_gaps']])
                 + "</div>",
                 unsafe_allow_html=True
             )
