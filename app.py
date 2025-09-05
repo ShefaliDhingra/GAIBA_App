@@ -45,23 +45,23 @@ if st.button("Match"):
         # ------------------------
         # Current Resume Strength (Keyword-based score)
         # ------------------------
-        st.subheader("📌 Current Resume Strength")
+        st.subheader("Resume Strength")
         keyword_count = len(output['match_keywords'])
 
         if keyword_count == 0:
-            resume_strength = "🔴 No Match!"
+            resume_strength = " No Match!"
             color = "red"
             progress_val = 0
         elif 1 <= keyword_count <= 3:
-            resume_strength = "🟡 Low"
+            resume_strength = " Low"
             color = "gold"
             progress_val = 25
         elif 4 <= keyword_count <= 6:
-            resume_strength = "🟠 Medium"
+            resume_strength = " Medium"
             color = "orange"
             progress_val = 60
         else:
-            resume_strength = "🟢 High"
+            resume_strength = " High"
             color = "green"
             progress_val = 100
 
@@ -79,7 +79,7 @@ if st.button("Match"):
         # ------------------------
         st.subheader("Match Keywords")
         if output['match_keywords']:
-            st.markdown(" ".join([f"✅ `{kw}`" for kw in output['match_keywords']]))
+            st.markdown(" ".join([f" `{kw}`" for kw in output['match_keywords']]))
         else:
             st.write("No significant match keywords found.")
 
