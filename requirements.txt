@@ -1,13 +1,18 @@
+# Python version: 3.12.x (ensure your environment uses 3.12.11 ideally)
+
 # Core dependencies
-pandas
-scikit-learn
-numpy
+pandas==2.1.0
+numpy==1.26.0
+scikit-learn==1.6.1
 
 # Streamlit app
-streamlit
+streamlit==1.30.0
 
 # Resume parsing (for DOCX upload)
-python-docx
+python-docx==0.8.11
 
 # Progress bar during processing
-tqdm
+tqdm==4.68.0
+
+# Optional: joblib for more robust model saving/loading
+joblib==1.3.2
