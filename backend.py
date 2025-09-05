@@ -1,5 +1,5 @@
 # ============================
-# backend.py (enhanced)
+# backend.py
 # ============================
 
 import pandas as pd
@@ -8,7 +8,7 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
-from scipy.sparse import hstack
+from scipy.sparse import hstack, csr_matrix
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ----------------------------
@@ -20,12 +20,9 @@ def clean_text(text):
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
-# Extended stopwords to remove common resume/JD words
 STOPWORDS = set([
     "a","an","the","and","or","in","on","of","with","to","for","is",
-    "are","as","by","from","at","be","this","that","will","you","your",
-    "skills","experience","work","projects","results","field","role","able",
-    "including","holding","holds","provides","providing","requires","using"
+    "are","as","by","from","at","be","this","that","will","you","your"
 ])
 
 def extract_keywords(text, top_n=20):
@@ -70,7 +67,6 @@ def prepare_features(df):
     vectorizer = TfidfVectorizer(max_features=1000)
     X_text = vectorizer.fit_transform(df['combined_text'])
     
-    # numeric features
     num_features = np.vstack([
         df['years_experience_numeric'],
         df['education_numeric'],
@@ -78,7 +74,7 @@ def prepare_features(df):
         df['num_technologies'],
         df['num_certifications'],
         df['job_role_encoded']
-    ]).T * 0.2  # reduced weight
+    ]).T
     
     X = hstack([X_text, num_features])
     return X, vectorizer
@@ -110,36 +106,34 @@ def compute_match_scope(resume_text, jd_text):
 # Inference
 # ----------------------------
 def predict_candidate_score(model, vectorizer, role_encoder, resume_text, jd_text, job_role, projects_text=""):
-    # Encode job role
     try:
         job_role_encoded = role_encoder.transform([job_role])[0]
     except:
         job_role_encoded = 0
 
-    # Feature engineering
+    # Combined text for TF-IDF
     combined_text = clean_text(resume_text) + " " + clean_text(jd_text) + " " + clean_text(projects_text)
     X_text = vectorizer.transform([combined_text])
     
     # Cosine similarity between resume and JD
-    X_resume = vectorizer.transform([clean_text(resume_text)])
-    X_jd = vectorizer.transform([clean_text(jd_text)])
-    cosine_sim = cosine_similarity(X_resume, X_jd)[0][0]
+    resume_vec = vectorizer.transform([clean_text(resume_text)])
+    jd_vec = vectorizer.transform([clean_text(jd_text)])
+    cosine_sim = cosine_similarity(resume_vec, jd_vec)[0][0]
     
-    # numeric features: reduced weight and include cosine similarity
+    # Numeric features: counts + job role + cosine similarity
     num_features = np.array([[0,0,0,0,0,job_role_encoded]]) * 0.2
-    # append similarity as extra numeric feature
-    num_features = hstack([num_features, np.array([[cosine_sim]])])
+    num_features = csr_matrix(num_features)  # convert to sparse
+    cosine_sim_sparse = csr_matrix([[cosine_sim]])
+    num_features = hstack([num_features, cosine_sim_sparse])
     
+    # Combine features
     X_input = hstack([X_text, num_features])
     
     numeric_cols = ['experience_match','skills_match','project_relevance','tech_match','industry_relevance','ats_score','relevancy']
     numeric_preds = model.predict(X_input)[0]
     
-    # penalize unknown/mismatched job roles
-    if job_role_encoded == 0:
-        numeric_preds = numeric_preds * 0.3
-    
     match_keywords, skill_gaps = compute_match_scope(resume_text, jd_text)
+    
     overall_percentage = numeric_preds.sum() / (len(numeric_cols)*10) * 100
     
     output = {col: float(val) for col,val in zip(numeric_cols, numeric_preds)}
