@@ -46,7 +46,7 @@ if st.button("Match"):
         # ------------------------
         # Overall Percentage Meter
         # ------------------------
-        overall = output['final_score']
+       overall = output['overall_percentage']
         st.subheader("Overall Match")
         st.progress(int(overall))
         st.markdown(f"<h4>{overall:.1f}%</h4>", unsafe_allow_html=True)
