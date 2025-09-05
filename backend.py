@@ -7,7 +7,6 @@ import numpy as np
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from scipy.sparse import hstack
 
@@ -105,40 +104,45 @@ def compute_match_scope(resume_text, jd_text):
 # ----------------------------
 # Inference with weighted scoring
 # ----------------------------
-def predict_candidate_score(model, vectorizer, role_encoder, resume_text, jd_text, job_role, projects_text=""):
+def predict_candidate_score(
+    model, vectorizer, role_encoder,
+    resume_text, jd_text, job_role,
+    projects_text="", years_experience=0, education_level=0
+):
     try:
         job_role_encoded = role_encoder.transform([job_role])[0]
     except:
         job_role_encoded = 0
 
+    # Prepare combined text features
     combined_text = clean_text(resume_text) + " " + clean_text(jd_text) + " " + clean_text(projects_text)
     X_text = vectorizer.transform([combined_text])
     
-    # numeric features for model prediction (can remain zeros if not using trained model)
-    num_features = np.array([[0,0,0,0,0,job_role_encoded]])
+    # Prepare numeric features
+    years_exp_num = map_experience_to_numeric(years_experience)
+    edu_num = map_education_to_numeric(education_level)
+    num_features = np.array([[years_exp_num, edu_num, 0, 0, 0, job_role_encoded]])
     X_input = hstack([X_text, num_features])
     
+    # Predict numeric columns
     numeric_cols = ['experience_match','skills_match','project_relevance','tech_match','industry_relevance','ats_score','relevancy']
     numeric_preds = model.predict(X_input)[0]
     
-    match_keywords, skill_gaps = compute_match_scope(resume_text, jd_text)
-    
-    # ----------------------------
-    # Weighted scoring
-    # ----------------------------
-    # You can change these weights as per your preference
+    # Define weights for each criteria
     weights = {
-        'experience_match': 0.15,
+        'experience_match': 0.2,
         'skills_match': 0.25,
-        'project_relevance': 0.10,
-        'tech_match': 0.10,
-        'industry_relevance': 0.15,
-        'ats_score': 0.15,
-        'relevancy': 0.10
+        'project_relevance': 0.15,
+        'tech_match': 0.15,
+        'industry_relevance': 0.1,
+        'ats_score': 0.1,
+        'relevancy': 0.05
     }
     
-    weighted_sum = sum(float(numeric_preds[i]) * weights[col] for i,col in enumerate(numeric_cols))
-    overall_percentage = weighted_sum * 10  # scale 0-10 per criteria
+    # Weighted overall percentage
+    overall_percentage = sum(numeric_preds[i] * weights[col] for i, col in enumerate(numeric_cols)) * 10  # scale 0-100
+    
+    match_keywords, skill_gaps = compute_match_scope(resume_text, jd_text)
     
     output = {col: float(val) for col,val in zip(numeric_cols, numeric_preds)}
     output.update({
