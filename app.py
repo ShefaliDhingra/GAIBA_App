@@ -9,7 +9,6 @@ from backend import load_enriched_df, train_numeric_model, predict_candidate_sco
 # ----------------------------
 st.set_page_config(page_title="AI Resume vs Job Description Matcher", layout="wide")
 st.title("AI Resume vs Job Description Matcher")
-st.write("Model ready!")
 
 # ----------------------------
 # Load Data and Train Model
