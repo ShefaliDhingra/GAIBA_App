@@ -146,8 +146,8 @@ def train_numeric_model(df):
 # ----------------------------
 # Section 5: Keyword-based logic (Groq)
 # ----------------------------
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-client = GroqClient(api_key=GROQ_API_KEY)
+os.environ["GROQ_API_KEY"] = "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"
+client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
 def compute_match_scope(resume_text, jd_text):
     """
