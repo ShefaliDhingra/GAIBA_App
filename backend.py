@@ -1,110 +1,72 @@
 # ============================
 # backend.py
 # ============================
-"""
-Backend for Resume vs Job Matching AI.
 
-Responsibilities:
-1. Load enriched_df.csv (all 150 entries)
-2. Feature engineering (text + structured numeric features + Job Role encoding)
-3. TF-IDF vectorizer creation
-4. Multi-output regression model for numeric targets
-5. Inference function for new candidate input (resume + JD + role)
-6. Keyword extraction using Groq LLM
-"""
-
-# ----------------------------
-# Imports
-# ----------------------------
 import pandas as pd
 import numpy as np
-import joblib
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from scipy.sparse import hstack
-import os
-import json
-from groq import GroqClient
 
 # ----------------------------
-# Section 1: Utility functions
+# Utility functions
 # ----------------------------
 def clean_text(text):
-    """Lowercase, remove punctuation and extra spaces"""
     text = str(text).lower()
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
+STOPWORDS = set([
+    "a","an","the","and","or","in","on","of","with","to","for","is",
+    "are","as","by","from","at","be","this","that","will","you","your"
+])
+
+def extract_keywords(text, top_n=20):
+    words = clean_text(text).split()
+    words = [w for w in words if w not in STOPWORDS and not w.isnumeric() and len(w) > 2]
+    freq = pd.Series(words).value_counts()
+    return list(freq.index[:top_n])
+
 def map_experience_to_numeric(experience_str):
-    mapping = {
-        "entry-level": 1,
-        "mid-level": 5,
-        "senior-level": 8,
-        "expert": 10
-    }
-    return mapping.get(str(experience_str).lower(), 0)
+    mapping = {"entry-level":1,"mid-level":5,"senior-level":8,"expert":10}
+    return mapping.get(str(experience_str).lower(),0)
 
 def map_education_to_numeric(education_str):
-    mapping = {
-        "bachelors degree": 1,
-        "masters degree": 2,
-        "phd": 3
-    }
-    return mapping.get(str(education_str).lower(), 0)
+    mapping = {"bachelors degree":1,"masters degree":2,"phd":3}
+    return mapping.get(str(education_str).lower(),0)
 
 # ----------------------------
-# Section 2: Load enriched_df
+# Load enriched_df
 # ----------------------------
 def load_enriched_df(file_path="enriched_df.csv"):
     df = pd.read_csv(file_path)
-    
-    # Numeric conversions
     df['years_experience_numeric'] = df['years_experience'].apply(map_experience_to_numeric)
     df['education_numeric'] = df['education_level'].apply(map_education_to_numeric)
-    
-    # Counts of skills, techs, certifications
     df['num_skills'] = df['skills'].apply(lambda x: len(eval(x)) if pd.notnull(x) else 0)
     df['num_technologies'] = df['technologies'].apply(lambda x: len(eval(x)) if pd.notnull(x) else 0)
     df['num_certifications'] = df['certifications'].apply(lambda x: len(eval(x)) if pd.notnull(x) else 0)
     
-    # Encode Job Roles
     role_encoder = LabelEncoder()
     df['job_role_encoded'] = role_encoder.fit_transform(df['Job Roles'].fillna('Unknown'))
-    
-    # Ensure models folder exists
-    if not os.path.exists("models"):
-        os.makedirs("models")
-    
-    # Save encoder for inference
-    joblib.dump(role_encoder, "models/job_role_encoder.pkl")
     
     return df, role_encoder
 
 # ----------------------------
-# Section 3: Feature Engineering
+# Feature engineering
 # ----------------------------
 def prepare_features(df):
-    """
-    Combine text features + numeric structured features + job role encoding
-    """
-    # Base text fields
     combined_text = df['Resume'].fillna('') + " " + df['Job Description'].fillna('')
-    
-    # Only include notable_projects if column exists
     if 'notable_projects' in df.columns:
         combined_text += " " + df['notable_projects'].fillna('').apply(lambda x: " ".join(eval(x)) if x.strip() != '' else '')
-    
     df['combined_text'] = combined_text
     
-    # TF-IDF vectorizer
     vectorizer = TfidfVectorizer(max_features=1000)
     X_text = vectorizer.fit_transform(df['combined_text'])
     
-    # Numeric structured features
     num_features = np.vstack([
         df['years_experience_numeric'],
         df['education_numeric'],
@@ -114,117 +76,54 @@ def prepare_features(df):
         df['job_role_encoded']
     ]).T
     
-    # Combine text + numeric features
     X = hstack([X_text, num_features])
-    
     return X, vectorizer
 
 # ----------------------------
-# Section 4: Train numeric model
+# Train model
 # ----------------------------
 def train_numeric_model(df):
-    """
-    Train multi-output regression model for 7 numeric targets
-    """
     X, vectorizer = prepare_features(df)
-    
-    # Targets: 7 numeric columns
-    target_cols = ['experience_match', 'skills_match', 'project_relevance',
-                   'tech_match', 'industry_relevance', 'ats_score', 'relevancy']
+    target_cols = ['experience_match','skills_match','project_relevance','tech_match','industry_relevance','ats_score','relevancy']
     y = df[target_cols]
     
-    # Split (optional for evaluation)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    # Train model
     model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
+    model.fit(X, y)
     
-    print("Numeric model and vectorizer are ready.")
     return model, vectorizer
 
 # ----------------------------
-# Section 5: Keyword-based logic (Groq)
+# Match & Scope logic
 # ----------------------------
-os.environ["GROQ_API_KEY"] = "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"
-client = Groq(api_key=os.environ["GROQ_API_KEY"])
-
 def compute_match_scope(resume_text, jd_text):
-    """
-    Uses Groq model to extract meaningful keywords from Resume vs JD.
-    Returns:
-    - match_keywords: keywords present in both resume and JD
-    - skill_gaps: keywords in JD but missing in resume
-    """
-    prompt = f"""
-    You are an AI assistant specialized in resume-job matching.
-    Given the candidate's resume and a job description, extract relevant skills, tools, certifications, and important keywords.
-    Ignore generic words like 'work', 'role', 'experience', 'etc.'.
-    
-    Resume:
-    \"\"\"{resume_text}\"\"\"
-    
-    Job Description:
-    \"\"\"{jd_text}\"\"\"
-    
-    Return a JSON with two lists:
-    {{
-      "match_keywords": [],
-      "skill_gaps": []
-    }}
-    """
-    try:
-        response = client.space_invoke(
-            space="your-space-name",  # replace with your deployed Space
-            input={"prompt": prompt}
-        )
-        text_response = response.get("output_text") or response.get("text") or str(response)
-        result = json.loads(text_response)
-        match_keywords = result.get("match_keywords", [])
-        skill_gaps = result.get("skill_gaps", [])
-    except:
-        # fallback empty if LLM fails
-        match_keywords, skill_gaps = [], []
-
-    return match_keywords, skill_gaps
+    resume_keywords = set(extract_keywords(resume_text, top_n=50))
+    jd_keywords = set(extract_keywords(jd_text, top_n=50))
+    match = list(resume_keywords & jd_keywords)
+    scope = list(jd_keywords - resume_keywords)
+    return match, scope
 
 # ----------------------------
-# Section 6: Inference function
+# Inference
 # ----------------------------
-def predict_candidate_score(resume_text, jd_text, job_role, projects_text="", model=None, vectorizer=None, role_encoder=None):
-    """
-    Input: Candidate Resume, Job Description, Job Role, optional Projects
-    Output: Dict with 7 numeric scores + match keywords + skill gaps + overall %
-    """
-    # Feature Engineering
-    combined_text = clean_text(resume_text) + " " + clean_text(jd_text) + " " + clean_text(projects_text)
-    X_text = vectorizer.transform([combined_text])
-    
-    # Encode job role
+def predict_candidate_score(model, vectorizer, role_encoder, resume_text, jd_text, job_role, projects_text=""):
     try:
         job_role_encoded = role_encoder.transform([job_role])[0]
     except:
-        job_role_encoded = 0  # fallback for unknown roles
+        job_role_encoded = 0
+
+    combined_text = clean_text(resume_text) + " " + clean_text(jd_text) + " " + clean_text(projects_text)
+    X_text = vectorizer.transform([combined_text])
     
-    # Numeric features placeholder
-    num_features = np.array([[0, 0, 0, 0, 0, job_role_encoded]])
-    
-    # Combine text + numeric
+    num_features = np.array([[0,0,0,0,0,job_role_encoded]])
     X_input = hstack([X_text, num_features])
     
-    # Predict numeric scores
-    numeric_cols = ['experience_match', 'skills_match', 'project_relevance',
-                    'tech_match', 'industry_relevance', 'ats_score', 'relevancy']
+    numeric_cols = ['experience_match','skills_match','project_relevance','tech_match','industry_relevance','ats_score','relevancy']
     numeric_preds = model.predict(X_input)[0]
     
-    # Compute Match & Scope using Groq
     match_keywords, skill_gaps = compute_match_scope(resume_text, jd_text)
+    overall_percentage = numeric_preds.sum() / (len(numeric_cols)*10) * 100
     
-    # Overall %
-    overall_percentage = numeric_preds.sum() / (len(numeric_cols) * 10) * 100
-    
-    # Build output dict
-    output = {col: float(val) for col, val in zip(numeric_cols, numeric_preds)}
+    output = {col: float(val) for col,val in zip(numeric_cols, numeric_preds)}
     output.update({
         "overall_percentage": overall_percentage,
         "match_keywords": match_keywords,
