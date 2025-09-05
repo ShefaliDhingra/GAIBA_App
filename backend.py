@@ -14,7 +14,6 @@ from scipy.sparse import hstack
 # Utility functions
 # ----------------------------
 def clean_text(text):
-    """Lowercase, remove punctuation and extra spaces"""
     text = str(text).lower()
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
@@ -103,48 +102,61 @@ def compute_match_scope(resume_text, jd_text):
     return match, scope
 
 # ----------------------------
-# Inference
+# Weighted Inference
 # ----------------------------
-def predict_candidate_score(model, vectorizer, role_encoder, resume_text, jd_text, job_role, projects_text="", years_experience="", education_level=""):
+def predict_candidate_score(model, vectorizer, role_encoder, resume_text, jd_text, job_role, years_experience=None, education_level=None, projects_text=""):
     # Encode job role
     try:
         job_role_encoded = role_encoder.transform([job_role])[0]
     except:
         job_role_encoded = 0
-
+    
+    # Numeric fields
+    exp_numeric = map_experience_to_numeric(years_experience) if years_experience else 0
+    edu_numeric = map_education_to_numeric(education_level) if education_level else 0
+    num_skills = 0
+    num_technologies = 0
+    num_certifications = 0
+    
+    # TF-IDF text
     combined_text = clean_text(resume_text) + " " + clean_text(jd_text) + " " + clean_text(projects_text)
     X_text = vectorizer.transform([combined_text])
     
-    # Optional numeric refinement
-    exp_numeric = map_experience_to_numeric(years_experience) if years_experience else 0
-    edu_numeric = map_education_to_numeric(education_level) if education_level else 0
+    # Numeric features
+    num_features = np.array([[exp_numeric, edu_numeric, num_skills, num_technologies, num_certifications, job_role_encoded]])
+    from scipy.sparse import csr_matrix
+    num_features = csr_matrix(num_features)
     
-    num_features = np.array([[exp_numeric, edu_numeric, 0, 0, 0, job_role_encoded]])
+    # Combine features
     X_input = hstack([X_text, num_features])
     
-    # Predict numeric scores
     numeric_cols = ['experience_match','skills_match','project_relevance','tech_match','industry_relevance','ats_score','relevancy']
-    numeric_preds = model.predict(X_input)[0]
     
-    # Compute match keywords
-    match_keywords, skill_gaps = compute_match_scope(resume_text, jd_text)
+    # Predict
+    try:
+        numeric_preds = model.predict(X_input)[0]
+    except:
+        numeric_preds = np.zeros(len(numeric_cols))
+    
+    # Keyword matching
+    match_keywords, skill_gaps = compute_match_scope(resume_text, jd_text) if resume_text and jd_text else ([], [])
     
     # ----------------------------
-    # Weighted overall percentage
+    # Weighted Overall Percentage
     # ----------------------------
+    # Define your weights here (sum can be <=1)
     weights = {
-        "experience_match": 0.1,
-        "skills_match": 0.35,
-        "project_relevance": 0.25,
-        "tech_match": 0.15,
-        "industry_relevance": 0.05,
-        "ats_score": 0.05,
-        "relevancy": 0.05
+        'experience_match': 0.2,
+        'skills_match': 0.25,
+        'project_relevance': 0.15,
+        'tech_match': 0.1,
+        'industry_relevance': 0.15,
+        'ats_score': 0.1,
+        'relevancy': 0.05
     }
     
-    overall_percentage = sum(numeric_preds[i] * weights[col] for i, col in enumerate(numeric_cols)) / sum(weights.values()) * 10
+    overall_percentage = sum(numeric_preds[i] * weights[col] for i, col in enumerate(numeric_cols)) / 10 * 100
     
-    # Build output
     output = {col: float(val) for col,val in zip(numeric_cols, numeric_preds)}
     output.update({
         "overall_percentage": overall_percentage,
