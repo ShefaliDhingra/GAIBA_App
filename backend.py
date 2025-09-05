@@ -15,17 +15,24 @@ from sklearn.metrics.pairwise import cosine_similarity
 # Utility functions
 # ----------------------------
 def clean_text(text):
+    """Lowercase, remove punctuation and extra spaces"""
     text = str(text).lower()
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
+# Common stopwords
 STOPWORDS = set([
     "a","an","the","and","or","in","on","of","with","to","for","is",
-    "are","as","by","from","at","be","this","that","will","you","your"
+    "are","as","by","from","at","be","this","that","will","you","your",
+    "also","they","their","i","we","our","has","have","had"
 ])
 
 def extract_keywords(text, top_n=20):
+    """
+    Extract top N meaningful keywords from text.
+    Ignores stopwords, numbers, and short words.
+    """
     words = clean_text(text).split()
     words = [w for w in words if w not in STOPWORDS and not w.isnumeric() and len(w) > 2]
     freq = pd.Series(words).value_counts()
@@ -75,6 +82,7 @@ def prepare_features(df):
         df['num_certifications'],
         df['job_role_encoded']
     ]).T
+    num_features = csr_matrix(num_features)
     
     X = hstack([X_text, num_features])
     return X, vectorizer
@@ -99,8 +107,8 @@ def compute_match_scope(resume_text, jd_text):
     resume_keywords = set(extract_keywords(resume_text, top_n=50))
     jd_keywords = set(extract_keywords(jd_text, top_n=50))
     match = list(resume_keywords & jd_keywords)
-    scope = list(jd_keywords - resume_keywords)
-    return match, scope
+    skill_gaps = list(jd_keywords - resume_keywords)
+    return match, skill_gaps
 
 # ----------------------------
 # Inference
@@ -111,36 +119,37 @@ def predict_candidate_score(model, vectorizer, role_encoder, resume_text, jd_tex
     except:
         job_role_encoded = 0
 
-    # Combined text for TF-IDF
+    # TF-IDF features
     combined_text = clean_text(resume_text) + " " + clean_text(jd_text) + " " + clean_text(projects_text)
     X_text = vectorizer.transform([combined_text])
     
-    # Cosine similarity between resume and JD
-    resume_vec = vectorizer.transform([clean_text(resume_text)])
-    jd_vec = vectorizer.transform([clean_text(jd_text)])
-    cosine_sim = cosine_similarity(resume_vec, jd_vec)[0][0]
+    # Numeric features only (keep same shape as training)
+    num_features = np.array([[0,0,0,0,0,job_role_encoded]])
+    num_features = csr_matrix(num_features)
     
-    # Numeric features: counts + job role + cosine similarity
-    num_features = np.array([[0,0,0,0,0,job_role_encoded]]) * 0.2
-    num_features = csr_matrix(num_features)  # convert to sparse
-    cosine_sim_sparse = csr_matrix([[cosine_sim]])
-    num_features = hstack([num_features, cosine_sim_sparse])
-    
-    # Combine features
     X_input = hstack([X_text, num_features])
     
+    # Predict numeric scores
     numeric_cols = ['experience_match','skills_match','project_relevance','tech_match','industry_relevance','ats_score','relevancy']
     numeric_preds = model.predict(X_input)[0]
     
+    # Cosine similarity (optional for reporting)
+    cosine_sim = cosine_similarity(vectorizer.transform([clean_text(resume_text)]),
+                                   vectorizer.transform([clean_text(jd_text)]))[0][0]
+    
+    # Compute match keywords
     match_keywords, skill_gaps = compute_match_scope(resume_text, jd_text)
     
+    # Overall percentage
     overall_percentage = numeric_preds.sum() / (len(numeric_cols)*10) * 100
     
+    # Build output
     output = {col: float(val) for col,val in zip(numeric_cols, numeric_preds)}
     output.update({
         "overall_percentage": overall_percentage,
         "match_keywords": match_keywords,
-        "skill_gaps": skill_gaps
+        "skill_gaps": skill_gaps,
+        "cosine_similarity": float(cosine_sim)
     })
     
     return output
